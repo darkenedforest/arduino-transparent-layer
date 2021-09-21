@@ -30,12 +30,12 @@
 #define TFT_RST             33      // Or set to -1 and connect to Arduino RESET pin
 #define SPRITE_X            100     // Sprite x origin point
 #define SPRITE_Y            60      // Sprite x origin point
-#define TRANSPARENT_COLOR   63488   // Pixel color to replace with background. It's Red. RGB 255,0,0. 
-                                    // Why is it 63488 instead of 0xFF0000 or ST77XX_RED? Well, the truth is...
-                                    // I'm not exactly sure. I tried both of those in my if statement below and neither
-                                    // evaluated properly. If you log the value of the pixel to the serial monitor,
-                                    // that is what you get. I'm probably implicitly converting it somewhere without
-                                    // realizing it or something. I'll add it to the TODO list to figure out.
+#define TRANSPARENT_COLOR   0xF800  // Pixel color to replace with background. It's Red. RGB 255,0,0. 
+                                    // Why is it 0xF800 instead of 0xFF0000 or ST77XX_RED? The Adafruit_ImageReader
+                                    // library packs 24 bit colors (8:8:8) into 16 bits (5:6:5). You can see the conversion
+                                    // in the coreBMP() function of the library. It's in Adafruit_ImageReader.cpp, line 541.
+                                    // There is a web site for converting from 8:8:8 to 5:6:5.
+                                    // http://greekgeeks.net/#maker-tools_convertColor
 
 
 
