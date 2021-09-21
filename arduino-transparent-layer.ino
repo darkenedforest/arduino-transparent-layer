@@ -29,7 +29,9 @@
 #define TFT_DC              27      // TFT display/command pin
 #define TFT_RST             33      // Or set to -1 and connect to Arduino RESET pin
 #define SPRITE_X            100     // Sprite x origin point
-#define SPRITE_Y            60      // Sprite x origin point
+#define SPRITE_Y            60      // Sprite y origin point
+#define BG_X                0       // Background x origin point
+#define BG_Y                0       // Background y origin point
 #define TRANSPARENT_COLOR   0xF800  // Pixel color to replace with background. It's Red. RGB 255,0,0. 
                                     // Why is it 0xF800 instead of 0xFF0000 or ST77XX_RED? The Adafruit_ImageReader
                                     // library packs 24 bit colors (8:8:8) into 16 bits (5:6:5). You can see the conversion
@@ -137,8 +139,7 @@ void setup() {
   sprite_canvas   = (GFXcanvas16*) sprite.getCanvas();
   uint16_t*       sprite_buff = sprite_canvas->getBuffer();
   int             bg_h = bg_canvas->height(),          // Get the background image height from canvas
-                  bg_w = bg_canvas->width(),           // Get the background image width from canvas
-                  bg_x = 0, bg_y = 0;                  // Set the x and y origin point for background image
+                  bg_w = bg_canvas->width();           // Get the background image width from canvas
   sprite_h        = sprite_canvas->height();           // Get the sprite image height from canvas
   sprite_w        = sprite_canvas->width();            // Get the sprite image width from canvas
 
@@ -193,7 +194,7 @@ void setup() {
 
 
   // Drop in the background. Use the draw function on the image object.
-  bg.draw(tft, bg_x, bg_y);                                             // Comment out this line if you want to see how the sprite and pacth look without the background
+  bg.draw(tft, BG_X, BG_Y);                                             // Comment out this line if you want to see how the sprite and pacth look without the background
 }
 
 void loop() {
