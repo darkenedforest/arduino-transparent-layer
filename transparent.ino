@@ -79,7 +79,7 @@ void setup() {
 
 
   // Load bg.bmp located on root folder of the SD card into bg image object
-  stat = reader.loadBMP("/bg/bg.bmp", bg);
+  stat = reader.loadBMP("/bg.bmp", bg);
 
 
 
