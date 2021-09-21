@@ -1,3 +1,18 @@
+/*
+ * Author: Tyler Baker
+ * Created: 9/19/2021
+ * Board: ESP32 (Adafruit Feather HUZZAH32 PID 3405
+ * TFT Display: Adafruit 1.14" 240x135 PID 4383
+ * 
+ * This sketch is intended to show how to edit the image buffer of an Adafruit_Image object to acheive a "transparent layer" effect for a sprite image
+ * on top of a background image. The process is accomplished by scanning the pixels of the sprite image for the transparent color (defined below) and replacing
+ * it with the corrosponding background image pixel. And additional buffer is created of the same size as the sprite image. This image is a cutout of the background
+ * image where the sprite will be placed. This will act as a pacth to cover over the sprite during frame transitions.
+ * A sample video of the process is available here: https://youtu.be/lk2fqWkhBDs
+ */
+
+
+
 #include <Adafruit_GFX.h>
 #include <SdFat.h>
 #include <Adafruit_SPIFlash.h>
@@ -5,23 +20,35 @@
 #include <Adafruit_ST7789.h>
 
 
+
+/*
+ * Adjust these as needed
+ */
 #define SD_CS               12      // SD card select pin
 #define TFT_CS              15      // TFT select pin
 #define TFT_DC              27      // TFT display/command pin
 #define TFT_RST             33      // Or set to -1 and connect to Arduino RESET pin
-#define TRANSPARENT_COLOR   63488   // Pixel color to replace with background
+#define SPRITE_X            100     // Sprite x origin point
+#define SPRITE_Y            60      // Sprite x origin point
+#define TRANSPARENT_COLOR   63488   // Pixel color to replace with background. It's Red. RGB 255,0,0. 
+                                    // Why is it 63488 instead of 0xFF0000 or ST77XX_RED? Well, the truth is...
+                                    // I'm not exactly sure. I tried both of those in my if statement below and neither
+                                    // evaluated properly. If you log the value of the pixel to the serial monitor,
+                                    // that is what you get. I'm probably implicitly converting it somewhere without
+                                    // realizing it or something. I'll add it to the TODO list to figure out.
 
 
+
+/*
+ * Declare some stuff
+ */
 SdFat                   SD;
 Adafruit_ImageReader    reader(SD);
 Adafruit_ST7789         tft = Adafruit_ST7789(TFT_CS, TFT_DC, TFT_RST);
 ImageReturnCode         stat;
 Adafruit_Image          bg;                     // Object to store background image
 Adafruit_Image          sprite;                 // Object to store sprite image
-
-
-int                     sprite_h, sprite_w,     // Sprite height and width
-                        sprite_x, sprite_y;     // x and y origin of top left corner of the sprite on the display
+int                     sprite_h, sprite_w;     // Sprite height and width    
 uint16_t                *bg_patch;              // Pointer to background patch buffer, to be dynamically allocated later
 
 
@@ -32,8 +59,16 @@ void setup() {
   // Start the serial monitor
   Serial.begin(115200);
 
+
+
   // Initalize the display. I'm using the 1.14" 135x240 TFT. Set your size accordingly.
   tft.init(135, 240);
+
+
+
+  tft.setRotation(3);
+
+
 
   // Check the SD card motor turns over
   if (!SD.begin(SD_CS, SD_SCK_MHZ(10))) { // Breakouts require 10 MHz limit due to longer wires
@@ -41,33 +76,33 @@ void setup() {
     for (;;); // Fatal error, do not continue
   }
 
-  // I like a nice black screen to start out
-  tft.fillScreen(ST77XX_BLACK);
 
 
   // Load bg.bmp located on root folder of the SD card into bg image object
-  stat = reader.loadBMP("/bg.bmp", bg);
+  stat = reader.loadBMP("/bg/bg.bmp", bg);
+
+
 
   /*  
    *  Make sure it successfully loaded. Trying to read the buffer of an empty image object will cause the world to come crashing down around you.
    *  No joke, there will be fires. Buildings will collapse. Loved ones will be lost.  Don't tempt fate or suffer the consequences.   
    */
   if (stat != IMAGE_SUCCESS) {
-    tft.println("Failed to load image. Is the SD card installed?");
     for (;;); // Fatal error, do not continue
   };
+
+  
 
   // Load sprite.bmp located on root folder of the SD card into bg image object
   stat = reader.loadBMP("/sprite.bmp", sprite);
 
-  // Same ominous worning as above.
+  
+
+  // Same ominous warning as above.
   if (stat != IMAGE_SUCCESS) {
-    tft.println("Failed to load image. Is the SD card installed?");
     for (;;); // Fatal error, do not continue
   };
 
-  //  Incase you need to rotate the screen.
-  //  tft.setRotation(3);
 
 
   /*
@@ -76,36 +111,34 @@ void setup() {
    * and then get the canvas buffer to gain access to the raw pixel data.
    */
 
+
   // Declare canvas pointer
   GFXcanvas16* bg_canvas;
+
 
 
   /* 
    *  getCanvas returns void and must be type converted. Read the description in Adafruit_Image library, 
    *  file Adafruit_ImageReader.cpp, line 144 for more details.
    */ 
-  tft.println("Getting background canvas...");
   bg_canvas = (GFXcanvas16*) bg.getCanvas();
 
-  // Now that we have the canvas we can get a pointer to the buffer.
-  tft.println("Getting background canvas buffer...");
+
+
+  /*
+   * Now that we have the canvas we can get a pointer to the buffer.
+   */
   uint16_t* bg_buff = bg_canvas->getBuffer();
 
 
-  // Do the same thing to get the pixe; data for the sprite.
+
+  // Do the same thing to get the pixel data for the sprite.
   GFXcanvas16* sprite_canvas;
-
-  tft.println("Getting sprite canvas...");
   sprite_canvas   = (GFXcanvas16*) sprite.getCanvas();
-
-  tft.println("Getting sprite canvas buffer...");
   uint16_t*       sprite_buff = sprite_canvas->getBuffer();
   int             bg_h = bg_canvas->height(),          // Get the background image height from canvas
                   bg_w = bg_canvas->width(),           // Get the background image width from canvas
                   bg_x = 0, bg_y = 0;                  // Set the x and y origin point for background image
-
-  sprite_x        = 100;                               // Set the sprite x origin point
-  sprite_y        = 60;                                // Set the sprite y origin point
   sprite_h        = sprite_canvas->height();           // Get the sprite image height from canvas
   sprite_w        = sprite_canvas->width();            // Get the sprite image width from canvas
 
@@ -116,7 +149,6 @@ void setup() {
    * happy. It will lead to fragmented memory and your microcontroller will become schizophrenic and possibly
    * develop multiple personality disorder.
    */
-  tft.println("Allocating memory for patch...");
   bg_patch        = (uint16_t*) malloc (sprite_h * sprite_w);
 
 
@@ -134,83 +166,40 @@ void setup() {
    *    Now j = 1. 1 * 30 = 30 Position 30 in the index is the first pixel in the second row, etc.
    *       
    *    It gets a little more complicated for the background image, because you are starting at the origin point of the sprite
-   *    in the background image buffer. (sprite_y * bg_w + sprite_x) then you multiple the row number (j) by the background width
+   *    in the background image buffer. (SPRITE_Y * bg_w + SPRITE_X) then you multiple the row number (j) by the background width
    *    to wrap around the background image to the start of the next row. Then add i to move through the pixels in the row.
    *    
    *  Each pixel from the background image is stored in the previously created array "bg_patch" to build the patch image.
    *  Then the sprite image is checked to see if its the special color
    */
-  tft.println("Preforming find and replace of pixels and building background patch...");
-  for (int16_t j = 0; j < sprite_h; j++) {
-    for (int16_t i = 0; i < sprite_w; i++) {
-      int index = j * sprite_w + i;
-      uint16_t bg_index = sprite_y * bg_w + sprite_x + j * bg_w + i;
-      bg_patch[index] = bg_buff[bg_index];
-      Serial.println(sprite_buff[index]);
-      if (sprite_buff[index] == TRANSPARENT_COLOR) {
-        sprite_buff[index] = bg_buff[bg_index];
+
+
+
+  for (int16_t j = 0; j < sprite_h; j++) {                               // For each row of pixels
+    for (int16_t i = 0; i < sprite_w; i++) {                             // For each pixel in the row
+      int index = j * sprite_w + i;                                      // This will increment 0, 1, 2, 3, etc...
+      uint16_t bg_index = SPRITE_Y * bg_w + SPRITE_X + j * bg_w + i;     // Sprite origin point in background image (SPRITE_Y * bg_w + SPRITE_X) plus current number of 
+                                                                         // rows into the sprite image (j * bg_w) plus current number of pixels in the sprite image (i).
+                                                                         // This will get you to the pixel data in the background image relative to the sprite image at the
+                                                                         // same location on the display.
+                                                                         
+      bg_patch[index] = bg_buff[bg_index];                               // Add the current backbground pixel to the background patch buffer/
+      if (sprite_buff[index] == TRANSPARENT_COLOR) {                     // If the current sprite pixel color is the transparent color,
+        sprite_buff[index] = bg_buff[bg_index];                          // replace the sprite pixel with the pixel from the background
       }
     }
   }
+  
 
-  tft.setTextSize(3);
-  tft.setCursor(60, 0);
-  tft.println("Patch");
-  tft.setCursor(0, 30);
-  tft.setTextSize(2);
-  tft.println("Same size as sprite");
-  tft.drawRGBBitmap(90, 70, bg_patch, sprite_w, sprite_h);
-  delay(7000);
 
-  tft.fillScreen(ST77XX_BLACK);
-
-  tft.setTextSize(3);
-  tft.setCursor(0, 0);
-  tft.println("Replace Reds");
-  tft.setCursor(0, 30);
-  tft.setTextSize(2);
-  tft.println("Replace red with");
-  tft.println("background pixels");
-  sprite.draw(tft, 90, 70);
-  delay(7000);
-
-  tft.fillScreen(ST77XX_BLACK);
-
-  tft.setTextSize(3);
-  tft.setCursor(0, 0);
-  tft.println("Toggle Sprite and Patch");
-  tft.setCursor(0, 30);
-  sprite.draw(tft, 90, 70);
-  delay(1000);
-  tft.drawRGBBitmap(90, 70, bg_patch, sprite_w, sprite_h);
-  delay(1000);
-  sprite.draw(tft, 90, 70);
-  delay(1000);
-  tft.drawRGBBitmap(90, 70, bg_patch, sprite_w, sprite_h);
-  delay(1000);
-  sprite.draw(tft, 90, 70);
-  delay(1000);
-  tft.drawRGBBitmap(90, 70, bg_patch, sprite_w, sprite_h);
-  delay(1000);
-
-  tft.fillScreen(ST77XX_BLACK);
-
-  tft.setTextSize(3);
-  tft.setCursor(0, 0);
-  tft.println("Putting it");
-  tft.println("all together");
-
-  delay(4000);
-
-  bg.draw(tft, bg_x, bg_y);
-
-  //sprite.draw(tft, sprite_x, sprite_y);
+  // Drop in the background. Use the draw function on the image object.
+  bg.draw(tft, bg_x, bg_y);                                             // Comment out this line if you want to see how the sprite and pacth look without the background
 }
 
 void loop() {
-
-  sprite.draw(tft, sprite_x, sprite_y);
+  // Alternate drawing the modified sprite image and the background patch every second
+  sprite.draw(tft, SPRITE_X, SPRITE_Y);                                 // Use the draw function on the image object.
   delay(1000);
-  tft.drawRGBBitmap(sprite_x, sprite_y, bg_patch, sprite_w, sprite_h);
+  tft.drawRGBBitmap(SPRITE_X, SPRITE_Y, bg_patch, sprite_w, sprite_h);  // use GFX's drawRGBBitmap to draw the background patch pixel buffer
   delay(1000);
 }
