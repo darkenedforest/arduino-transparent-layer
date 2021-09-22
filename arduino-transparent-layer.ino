@@ -50,7 +50,7 @@ Adafruit_ST7789         tft = Adafruit_ST7789(TFT_CS, TFT_DC, TFT_RST);
 ImageReturnCode         stat;
 Adafruit_Image          bg;                     // Object to store background image
 Adafruit_Image          sprite;                 // Object to store sprite image
-int                     sprite_h, sprite_w;     // Sprite height and width    
+byte                    sprite_h, sprite_w;     // Sprite height and width    
 uint16_t                *bg_patch;              // Pointer to background patch buffer, to be dynamically allocated later
 
 
@@ -138,7 +138,7 @@ void setup() {
   GFXcanvas16* sprite_canvas;
   sprite_canvas   = (GFXcanvas16*) sprite.getCanvas();
   uint16_t*       sprite_buff = sprite_canvas->getBuffer();
-  int             bg_h = bg_canvas->height(),          // Get the background image height from canvas
+  byte            bg_h = bg_canvas->height(),          // Get the background image height from canvas
                   bg_w = bg_canvas->width();           // Get the background image width from canvas
   sprite_h        = sprite_canvas->height();           // Get the sprite image height from canvas
   sprite_w        = sprite_canvas->width();            // Get the sprite image width from canvas
@@ -178,8 +178,8 @@ void setup() {
 
   for (int16_t j = 0; j < sprite_h; j++) {                               // For each row of pixels
     for (int16_t i = 0; i < sprite_w; i++) {                             // For each pixel in the row
-      int index = j * sprite_w + i;                                      // This will increment 0, 1, 2, 3, etc...
-      uint16_t bg_index = SPRITE_Y * bg_w + SPRITE_X + j * bg_w + i;     // Sprite origin point in background image (SPRITE_Y * bg_w + SPRITE_X) plus current number of 
+      short index = j * sprite_w + i;                                    // This will increment 0, 1, 2, 3, etc...
+      short bg_index = SPRITE_Y * bg_w + SPRITE_X + j * bg_w + i;        // Sprite origin point in background image (SPRITE_Y * bg_w + SPRITE_X) plus current number of 
                                                                          // rows into the sprite image (j * bg_w) plus current number of pixels in the sprite image (i).
                                                                          // This will get you to the pixel data in the background image relative to the sprite image at the
                                                                          // same location on the display.
